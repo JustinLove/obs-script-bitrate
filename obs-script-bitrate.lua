@@ -15,8 +15,9 @@ local obsffi = ffi.load("obs")
 
 local width = 640
 local height = 360
-local bitrate = 1000
 local fps = 30
+local bitrate = 1000
+local bpp = 0.075
 
 local resolution_options = {
 	{640, 360},
@@ -103,6 +104,8 @@ function script_properties()
 
 	obs.obs_properties_add_int(props, "bitrate", "Bitrate", 1, 6000, bitrate)
 
+	obs.obs_properties_add_float(props, "bpp", "Bits Per Pixel", 0.05, 0.5, bpp)
+
 	return props
 end
 
@@ -112,6 +115,7 @@ function script_defaults(settings)
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
 	obs.obs_data_set_default_int(settings, "bitrate", bitrate)
+	obs.obs_data_set_default_double(settings, "bpp", bpp)
 end
 
 function script_update(settings)
@@ -124,7 +128,8 @@ function script_update(settings)
 	end
 	fps = obs.obs_data_get_int(settings, "fps")
 	bitrate = obs.obs_data_get_int(settings, "bitrate")
-	obs.script_log(1, width .. "x" .. height .. " " .. fps .. "fps @ " .. bitrate)
+	bpp = obs.obs_data_get_double(settings, "bpp")
+	obs.script_log(1, width .. "x" .. height .. " " .. fps .. "fps @ " .. bitrate .. " " .. bpp .. "bpp")
 end
 
 function script_save(settings)
@@ -153,8 +158,11 @@ function script_load(settings)
 		obs.script_log(1, "no video")
 	end
 
-	obs.script_log(1, width .. "x" .. height .. " " .. fps .. "fps @ " .. bitrate)
+	bpp = (bitrate * 1000) / (width * height * fps)
+
+	obs.script_log(1, width .. "x" .. height .. " " .. fps .. "fps @ " .. bitrate .. " " .. bpp .. "bpp")
 	obs.obs_data_set_int(settings, "height", height)
 	obs.obs_data_set_int(settings, "fps", fps)
 	obs.obs_data_set_int(settings, "bitrate", bitrate)
+	obs.obs_data_set_double(settings, "bpp", bpp)
 end
