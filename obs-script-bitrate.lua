@@ -1,4 +1,9 @@
 obs = obslua
+
+function script_log(message)
+	obs.script_log(obs.LOG_INFO, message)
+end
+
 ffi = require("ffi")
 
 ffi.cdef[[
@@ -36,6 +41,74 @@ local resolution_options = {
 
 local fps_options = {10, 15, 20, 30}
 
+local video_options = {}
+
+local min_detail = 50
+local max_detail = 50
+
+function calculate_detail()
+	for r, res in ipairs(resolution_options) do
+		for f, frames in ipairs(fps_options) do
+			detail = res[1] * res[2] / frames
+			min_detail = math.min(detail, min_detail)
+			max_detail = math.max(detail, max_detail)
+			video_options[#video_options+1] = {
+				width = res[1],
+				height = res[2],
+				fps = frames,
+				pps = res[1] * res[2] * frames,
+				detail = res[1] * res[2] / frames
+			}
+		end
+	end
+
+	table.sort(video_options, function(a, b)
+		return a.detail < b.detail
+	end)
+end
+
+calculate_detail()
+
+function display_settings()
+	script_log(string.format("%dx%d %dfps @ %d %0.3fbpp %0.2f",
+		width,
+		height,
+		fps,
+		bitrate,
+		bpp,
+		width * height / fps / 1000))
+end
+
+function capture_obs_settings()
+	local encoder = obs.obs_get_encoder_by_name("simple_h264_stream")
+	if encoder then
+		width = obs.obs_encoder_get_width(encoder)
+		height = obs.obs_encoder_get_height(encoder)
+		local settings = obs.obs_encoder_get_settings(encoder)
+		--script_log(obs.obs_data_get_json(settings))
+		bitrate = obs.obs_data_get_int(settings, "bitrate")
+		obs.obs_data_release(settings)
+		obs.obs_encoder_release(encoder)
+	else
+		script_log("no encoder")
+	end
+
+	local video = obsffi.obs_get_video()
+	if video then
+		fps = obsffi.video_output_get_frame_rate(video)
+	else
+		script_log("no video")
+	end
+
+	bpp = (bitrate * 1000) / (width * height * fps)
+
+	obs.obs_data_set_int(settings, "height", height)
+	obs.obs_data_set_int(settings, "fps", fps)
+	obs.obs_data_set_int(settings, "bitrate", bitrate)
+	obs.obs_data_set_double(settings, "bpp", bpp)
+	obs.obs_data_set_int(settings, "detail", math.floor(width * height / fps / 1000))
+end
+
 function dump_obs()
 	local keys = {}
 	for key,value in pairs(obs) do
@@ -52,35 +125,7 @@ function dump_obs()
 		end
 		output[i] = key .. " : " .. value
 	end
-	obs.script_log(1, table.concat(output, "\n"))
-end
-
-function bad_try_enum_outputs()
-	local outputs = {}
-	local function capture_output(nothing, output)
-		outputs[#outputs+1] = output
-		return true
-	end
-	obs.obs_enum_outputs(capture_output, nil)
-	script_log("Got " .. #outputs)
-end
-
-function inspect_output()
-	local output = obs.obs_get_output_by_name("simple_stream")
-	if output then
-		obs.script_log(1, "got it")
-		--local settings = obs.obs_output_get_settings(output)
-		--obs.script_log(1, obs.obs_data_get_json(settings))
-		--local video = obs.obs_output_video(output)
-		--obs.script_log(1, video or "nil")
-		obs.obs_data_release(settings)
-		obs.obs_output_release(output)
-	else
-		obs.script_log(1, "no output")
-	end
-
-	--local output_types = {}
-	--obs.obs_enum_output_types(100, output_types)
+	script_log(table.concat(output, "\n"))
 end
 
 function script_description()
@@ -88,7 +133,7 @@ function script_description()
 end
 
 function script_properties()
-	obs.script_log(1, "props")
+	script_log("props")
 
 	local props = obs.obs_properties_create()
 
@@ -106,19 +151,26 @@ function script_properties()
 
 	obs.obs_properties_add_float(props, "bpp", "Bits Per Pixel", 0.05, 0.5, bpp)
 
+	obs.obs_properties_add_int_slider(props, "tradeoff", "Tradeoff", 1, #video_options, 1)
+
+	obs.obs_properties_add_int_slider(props, "detail", "Detail", math.floor(min_detail / 1000), math.ceil(max_detail / 1000), 50)
+
 	return props
 end
 
 function script_defaults(settings)
-	obs.script_log(1, "defaults")
+	script_log("defaults")
 
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
 	obs.obs_data_set_default_int(settings, "bitrate", bitrate)
 	obs.obs_data_set_default_double(settings, "bpp", bpp)
+	obs.obs_data_set_default_int(settings, "tradeoff", 1)
+	obs.obs_data_set_default_int(settings, "detail", 50)
 end
 
 function script_update(settings)
+	script_log("update")
 	height = obs.obs_data_get_int(settings, "height")
 	for _, res in ipairs(resolution_options) do
 		if res[2] == height then
@@ -129,40 +181,29 @@ function script_update(settings)
 	fps = obs.obs_data_get_int(settings, "fps")
 	bitrate = obs.obs_data_get_int(settings, "bitrate")
 	bpp = obs.obs_data_get_double(settings, "bpp")
-	obs.script_log(1, width .. "x" .. height .. " " .. fps .. "fps @ " .. bitrate .. " " .. bpp .. "bpp")
+
+	local tradeoff = obs.obs_data_get_int(settings, "tradeoff")
+	local video = video_options[tradeoff]
+	width = video.width
+	height = video.height
+	fps = video.fps
+	bpp = (bitrate * 1000) / (width * height * fps)
+
+	obs.obs_data_set_int(settings, "height", height)
+	obs.obs_data_set_int(settings, "fps", fps)
+	--obs.obs_data_set_double(settings, "bpp", bpp)
+
+	display_settings()
 end
 
 function script_save(settings)
-	obs.script_log(1, "save")
+	script_log("save")
+	capture_obs_settings()
 end
 
 function script_load(settings)
+	script_log("load")
 	--dump_obs()
-	local encoder = obs.obs_get_encoder_by_name("simple_h264_stream")
-	if encoder then
-		width = obs.obs_encoder_get_width(encoder)
-		height = obs.obs_encoder_get_height(encoder)
-		local settings = obs.obs_encoder_get_settings(encoder)
-		--obs.script_log(1, obs.obs_data_get_json(settings))
-		bitrate = obs.obs_data_get_int(settings, "bitrate")
-		obs.obs_data_release(settings)
-		obs.obs_encoder_release(encoder)
-	else
-		obs.script_log(1, "no encoder")
-	end
-
-	local video = obsffi.obs_get_video()
-	if video then
-		fps = obsffi.video_output_get_frame_rate(video)
-	else
-		obs.script_log(1, "no video")
-	end
-
-	bpp = (bitrate * 1000) / (width * height * fps)
-
-	obs.script_log(1, width .. "x" .. height .. " " .. fps .. "fps @ " .. bitrate .. " " .. bpp .. "bpp")
-	obs.obs_data_set_int(settings, "height", height)
-	obs.obs_data_set_int(settings, "fps", fps)
-	obs.obs_data_set_int(settings, "bitrate", bitrate)
-	obs.obs_data_set_double(settings, "bpp", bpp)
+	capture_obs_settings()
+	display_settings()
 end
