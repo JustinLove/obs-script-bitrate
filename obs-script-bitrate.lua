@@ -180,6 +180,25 @@ function capture_obs_settings()
 	obs.obs_data_set_int(settings, "fps", fps)
 end
 
+function apply_settings()
+	local info = ffi.new("struct obs_video_info")
+	obsffi.obs_get_video_info(info)
+	info.output_width = width
+	info.output_height = height
+	info.fps_num = fps
+	info.fps_den = 1
+	local result = obsffi.obs_reset_video(info)
+	if result == -4 then
+		script_log("Cannot update while video active")
+	elseif result < 0 then
+		script_log("Error: " .. result)
+	else
+		script_log("Succesfully appllied?")
+	end
+
+	return true -- true calls QT RefreshProperties ?
+end
+
 function dump_obs()
 	local keys = {}
 	for key,value in pairs(obs) do
@@ -224,6 +243,8 @@ function script_properties()
 		obs.obs_property_list_add_int(f, tostring(frames), frames)
 	end
 
+	obs.obs_properties_add_button(props, "apply_settings", "Apply Settings", apply_settings)
+
 	return props
 end
 
@@ -254,19 +275,6 @@ function script_update(settings)
 	bpp = bitrate / (width * height * fps)
 
 	display_settings()
-
-	local info = ffi.new("struct obs_video_info")
-	obsffi.obs_get_video_info(info)
-	info.output_width = width
-	info.output_height = height
-	info.fps_num = fps
-	info.fps_den = 1
-	local result = obsffi.obs_reset_video(info)
-	if result == -4 then
-		script_log("Cannot update while video active")
-	elseif result < 0 then
-		script_log("Error: " .. result)
-	end
 end
 
 -- A function named script_save will be called when OBS settings are changed
@@ -275,7 +283,7 @@ end
 -- NOTE: This function is usually used for saving extra data
 -- Settings set via the properties are saved automatically.
 function script_save(settings)
-	script_log("save")
+	--script_log("save")
 	capture_obs_settings()
 end
 
