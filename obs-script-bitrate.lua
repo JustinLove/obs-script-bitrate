@@ -14,6 +14,81 @@ typedef struct video_output video_t;
 double video_output_get_frame_rate(const video_t *video);
 
 video_t *obs_get_video(void);
+
+
+
+enum video_format {
+	VIDEO_FORMAT_NONE,
+
+	/* planar 420 format */
+	VIDEO_FORMAT_I420, /* three-plane */
+	VIDEO_FORMAT_NV12, /* two-plane, luma and packed chroma */
+
+	/* packed 422 formats */
+	VIDEO_FORMAT_YVYU,
+	VIDEO_FORMAT_YUY2, /* YUYV */
+	VIDEO_FORMAT_UYVY,
+
+	/* packed uncompressed formats */
+	VIDEO_FORMAT_RGBA,
+	VIDEO_FORMAT_BGRA,
+	VIDEO_FORMAT_BGRX,
+	VIDEO_FORMAT_Y800, /* grayscale */
+
+	/* planar 4:4:4 */
+	VIDEO_FORMAT_I444,
+};
+
+enum video_colorspace {
+	VIDEO_CS_DEFAULT,
+	VIDEO_CS_601,
+	VIDEO_CS_709,
+};
+
+enum video_range_type {
+	VIDEO_RANGE_DEFAULT,
+	VIDEO_RANGE_PARTIAL,
+	VIDEO_RANGE_FULL
+};
+
+enum obs_scale_type {
+	OBS_SCALE_DISABLE,
+	OBS_SCALE_POINT,
+	OBS_SCALE_BICUBIC,
+	OBS_SCALE_BILINEAR,
+	OBS_SCALE_LANCZOS
+};
+
+struct obs_video_info {
+	/**
+	 * Graphics module to use (usually "libobs-opengl" or "libobs-d3d11")
+	 */
+	const char          *graphics_module;
+
+	uint32_t            fps_num;       /**< Output FPS numerator */
+	uint32_t            fps_den;       /**< Output FPS denominator */
+
+	uint32_t            base_width;    /**< Base compositing width */
+	uint32_t            base_height;   /**< Base compositing height */
+
+	uint32_t            output_width;  /**< Output width */
+	uint32_t            output_height; /**< Output height */
+	enum video_format   output_format; /**< Output format */
+
+	/** Video adapter index to use (NOTE: avoid for optimus laptops) */
+	uint32_t            adapter;
+
+	/** Use shaders to convert to different color formats */
+	bool                gpu_conversion;
+
+	enum video_colorspace colorspace;  /**< YUV type (if YUV) */
+	enum video_range_type range;       /**< YUV range (if YUV) */
+
+	enum obs_scale_type scale_type;    /**< How to scale if scaling */
+};
+
+bool obs_get_video_info(struct obs_video_info *ovi);
+int obs_reset_video(struct obs_video_info *ovi);
 ]]
 
 local obsffi = ffi.load("obs")
@@ -87,8 +162,6 @@ function capture_obs_settings()
 		local settings = obs.obs_encoder_get_settings(encoder)
 		--script_log(obs.obs_data_get_json(settings))
 		bitrate = obs.obs_data_get_int(settings, "bitrate") * 1000
-		obs.obs_data_release(settings)
-		obs.obs_encoder_release(encoder)
 	else
 		script_log("no encoder")
 	end
@@ -181,6 +254,19 @@ function script_update(settings)
 	bpp = bitrate / (width * height * fps)
 
 	display_settings()
+
+	local info = ffi.new("struct obs_video_info")
+	obsffi.obs_get_video_info(info)
+	info.output_width = width
+	info.output_height = height
+	info.fps_num = fps
+	info.fps_den = 1
+	local result = obsffi.obs_reset_video(info)
+	if result == -4 then
+		script_log("Cannot update while video active")
+	elseif result < 0 then
+		script_log("Error: " .. result)
+	end
 end
 
 -- A function named script_save will be called when OBS settings are changed
