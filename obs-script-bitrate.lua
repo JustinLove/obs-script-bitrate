@@ -21,7 +21,7 @@ local obsffi = ffi.load("obs")
 local width = 640
 local height = 360
 local fps = 30
-local bitrate = 1000
+local bitrate = 1000000
 local bpp = 0.075
 
 local resolution_options = {
@@ -39,10 +39,7 @@ local resolution_options = {
 	{1920, 1080}
 }
 
-local fps_options = {}
-for frames = 10,60,5 do
-	fps_options[#fps_options+1] = frames
-end
+local fps_options = {5, 10, 15, 20, 30, 45, 60}
 
 local video_options = {}
 
@@ -60,7 +57,7 @@ function calculate_detail()
 				height = res[2],
 				fps = frames,
 				pps = res[1] * res[2] * frames,
-				detail = res[1] * res[2] / frames
+				detail = detail
 			}
 		end
 	end
@@ -77,7 +74,7 @@ function display_settings()
 		width,
 		height,
 		fps,
-		bitrate,
+		bitrate/1000,
 		bpp,
 		width * height / fps / 1000))
 end
@@ -89,7 +86,7 @@ function capture_obs_settings()
 		height = obs.obs_encoder_get_height(encoder)
 		local settings = obs.obs_encoder_get_settings(encoder)
 		--script_log(obs.obs_data_get_json(settings))
-		bitrate = obs.obs_data_get_int(settings, "bitrate")
+		bitrate = obs.obs_data_get_int(settings, "bitrate") * 1000
 		obs.obs_data_release(settings)
 		obs.obs_encoder_release(encoder)
 	else
@@ -103,13 +100,13 @@ function capture_obs_settings()
 		script_log("no video")
 	end
 
-	bpp = (bitrate * 1000) / (width * height * fps)
+	bpp = bitrate / (width * height * fps)
 
+	obs.obs_data_set_int(settings, "kbitrate", bitrate / 1000)
+	obs.obs_data_set_int(settings, "mbpp", math.floor(bpp * 1000 + 0.5))
+	obs.obs_data_set_int(settings, "kdetail", math.floor(width * height / fps / 1000))
 	obs.obs_data_set_int(settings, "height", height)
 	obs.obs_data_set_int(settings, "fps", fps)
-	obs.obs_data_set_int(settings, "bitrate", bitrate)
-	obs.obs_data_set_double(settings, "bpp", bpp)
-	obs.obs_data_set_int(settings, "detail", math.floor(width * height / fps / 1000))
 end
 
 function dump_obs()
@@ -144,6 +141,7 @@ function script_properties()
 
 	local props = obs.obs_properties_create()
 
+	obs.obs_properties_add_int(props, "kbitrate", "KiloBitrate", 1, 6000, 50)
 	local r = obs.obs_properties_add_list(props, "height", "Resolution", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
 	for _, res in ipairs(resolution_options) do
 		obs.obs_property_list_add_int(r, res[1] .. "x" .. res[2], res[2])
@@ -154,13 +152,10 @@ function script_properties()
 		obs.obs_property_list_add_int(f, tostring(frames), frames)
 	end
 
-	obs.obs_properties_add_int(props, "bitrate", "Bitrate", 1, 6000, bitrate)
 
-	obs.obs_properties_add_float(props, "bpp", "Bits Per Pixel", 0.05, 0.5, bpp)
+	obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 50, 500, 1)
 
-	obs.obs_properties_add_int_slider(props, "tradeoff", "Tradeoff", 1, #video_options, 1)
-
-	obs.obs_properties_add_int_slider(props, "detail", "Detail", math.floor(min_detail / 1000), math.ceil(max_detail / 1000), 1)
+	obs.obs_properties_add_int_slider(props, "kdetail", "Detail", math.floor(min_detail / 1000), math.ceil(max_detail / 1000), 1)
 
 	return props
 end
@@ -169,17 +164,18 @@ end
 function script_defaults(settings)
 	script_log("defaults")
 
+	obs.obs_data_set_default_int(settings, "kbitrate", bitrate/1000)
+	obs.obs_data_set_default_int(settings, "mbpp", 100)
+	obs.obs_data_set_default_int(settings, "kdetail", 50)
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
-	obs.obs_data_set_default_int(settings, "bitrate", bitrate)
-	obs.obs_data_set_default_double(settings, "bpp", bpp)
-	obs.obs_data_set_default_int(settings, "tradeoff", 1)
-	obs.obs_data_set_default_int(settings, "detail", 50)
 end
 
 -- A function named script_update will be called when settings are changed
 function script_update(settings)
 	script_log("update")
+	bitrate = obs.obs_data_get_int(settings, "kbitrate") * 1000
+	bpp = obs.obs_data_get_int(settings, "mbpp") / 1000
 	height = obs.obs_data_get_int(settings, "height")
 	for _, res in ipairs(resolution_options) do
 		if res[2] == height then
@@ -188,19 +184,12 @@ function script_update(settings)
 		end
 	end
 	fps = obs.obs_data_get_int(settings, "fps")
-	bitrate = obs.obs_data_get_int(settings, "bitrate")
-	bpp = obs.obs_data_get_double(settings, "bpp")
 
-	local tradeoff = obs.obs_data_get_int(settings, "tradeoff")
-	local video = video_options[tradeoff]
-	width = video.width
-	height = video.height
-	fps = video.fps
-	bpp = (bitrate * 1000) / (width * height * fps)
 
 	obs.obs_data_set_int(settings, "height", height)
 	obs.obs_data_set_int(settings, "fps", fps)
 	--obs.obs_data_set_double(settings, "bpp", bpp)
+	bpp = bitrate / (width * height * fps)
 
 	display_settings()
 end
