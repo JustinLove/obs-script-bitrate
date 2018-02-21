@@ -103,8 +103,6 @@ function capture_obs_settings()
 	bpp = bitrate / (width * height * fps)
 
 	obs.obs_data_set_int(settings, "kbitrate", bitrate / 1000)
-	obs.obs_data_set_int(settings, "mbpp", math.floor(bpp * 1000 + 0.5))
-	obs.obs_data_set_int(settings, "kdetail", math.floor(width * height / fps / 1000))
 	obs.obs_data_set_int(settings, "height", height)
 	obs.obs_data_set_int(settings, "fps", fps)
 end
@@ -142,6 +140,7 @@ function script_properties()
 	local props = obs.obs_properties_create()
 
 	obs.obs_properties_add_int(props, "kbitrate", "KiloBitrate", 1, 6000, 50)
+
 	local r = obs.obs_properties_add_list(props, "height", "Resolution", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
 	for _, res in ipairs(resolution_options) do
 		obs.obs_property_list_add_int(r, res[1] .. "x" .. res[2], res[2])
@@ -152,11 +151,6 @@ function script_properties()
 		obs.obs_property_list_add_int(f, tostring(frames), frames)
 	end
 
-
-	obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 50, 500, 1)
-
-	obs.obs_properties_add_int_slider(props, "kdetail", "Detail", math.floor(min_detail / 1000), math.ceil(max_detail / 1000), 1)
-
 	return props
 end
 
@@ -165,8 +159,6 @@ function script_defaults(settings)
 	script_log("defaults")
 
 	obs.obs_data_set_default_int(settings, "kbitrate", bitrate/1000)
-	obs.obs_data_set_default_int(settings, "mbpp", 100)
-	obs.obs_data_set_default_int(settings, "kdetail", 50)
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
 end
@@ -175,7 +167,6 @@ end
 function script_update(settings)
 	script_log("update")
 	bitrate = obs.obs_data_get_int(settings, "kbitrate") * 1000
-	bpp = obs.obs_data_get_int(settings, "mbpp") / 1000
 	height = obs.obs_data_get_int(settings, "height")
 	for _, res in ipairs(resolution_options) do
 		if res[2] == height then
@@ -185,10 +176,8 @@ function script_update(settings)
 	end
 	fps = obs.obs_data_get_int(settings, "fps")
 
-
 	obs.obs_data_set_int(settings, "height", height)
 	obs.obs_data_set_int(settings, "fps", fps)
-	--obs.obs_data_set_double(settings, "bpp", bpp)
 	bpp = bitrate / (width * height * fps)
 
 	display_settings()
