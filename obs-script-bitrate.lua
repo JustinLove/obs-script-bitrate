@@ -39,7 +39,10 @@ local resolution_options = {
 	{1920, 1080}
 }
 
-local fps_options = {10, 15, 20, 30}
+local fps_options = {}
+for frames = 10,60,5 do
+	fps_options[#fps_options+1] = frames
+end
 
 local video_options = {}
 
@@ -128,10 +131,14 @@ function dump_obs()
 	script_log(table.concat(output, "\n"))
 end
 
+-- A function named script_description returns the description shown to
+-- the user
 function script_description()
 	return "Calculate bitrate tradeoffs, and maybe someday update settings in once place"
 end
 
+-- A function named script_properties defines the properties that the user
+-- can change for the entire script module itself
 function script_properties()
 	script_log("props")
 
@@ -153,11 +160,12 @@ function script_properties()
 
 	obs.obs_properties_add_int_slider(props, "tradeoff", "Tradeoff", 1, #video_options, 1)
 
-	obs.obs_properties_add_int_slider(props, "detail", "Detail", math.floor(min_detail / 1000), math.ceil(max_detail / 1000), 50)
+	obs.obs_properties_add_int_slider(props, "detail", "Detail", math.floor(min_detail / 1000), math.ceil(max_detail / 1000), 1)
 
 	return props
 end
 
+-- A function named script_defaults will be called to set the default settings
 function script_defaults(settings)
 	script_log("defaults")
 
@@ -169,6 +177,7 @@ function script_defaults(settings)
 	obs.obs_data_set_default_int(settings, "detail", 50)
 end
 
+-- A function named script_update will be called when settings are changed
 function script_update(settings)
 	script_log("update")
 	height = obs.obs_data_get_int(settings, "height")
@@ -196,11 +205,17 @@ function script_update(settings)
 	display_settings()
 end
 
+-- A function named script_save will be called when OBS settings are changed
+-- including start and stop streaming.
+--
+-- NOTE: This function is usually used for saving extra data
+-- Settings set via the properties are saved automatically.
 function script_save(settings)
 	script_log("save")
 	capture_obs_settings()
 end
 
+-- a function named script_load will be called on startup
 function script_load(settings)
 	script_log("load")
 	--dump_obs()
