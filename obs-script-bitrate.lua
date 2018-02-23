@@ -1,8 +1,5 @@
 obs = obslua
 
-my_script_properties = nil
-my_script_settings = nil
-
 function script_log(message)
 	obs.script_log(obs.LOG_INFO, message)
 end
@@ -186,8 +183,6 @@ function capture_obs_settings(settings)
 end
 
 function apply_settings(props, p)
-	my_script_properties = props
-
 	local info = ffi.new("struct obs_video_info")
 	obsffi.obs_get_video_info(info)
 	info.output_width = width
@@ -206,8 +201,45 @@ function apply_settings(props, p)
 	return true -- true calls QT RefreshProperties ?
 end
 
-function optimize_resolution(props, p)
-	my_script_properties = props
+function bitrate_modified(props, p, settings)
+	bitrate = obs.obs_data_get_int(settings, "kbitrate") * 1000
+	update_bpp(settings)
+	return true
+end
+
+function target_bpp_modified(props, p, settings)
+	target_bpp = obs.obs_data_get_int(settings, "target_mbpp") / 1000
+	return true
+end
+
+function height_modified(props, p, settings)
+	height = obs.obs_data_get_int(settings, "height")
+	for _, res in ipairs(resolution_options) do
+		if res[2] == height then
+			width = res[1]
+			break
+		end
+	end
+
+	local target_pps = bitrate / target_bpp
+	local best_option = video_options[1]
+	for _,option in ipairs(video_options) do
+		if option.height == height then
+			if math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
+				best_option = option
+			end
+		end
+	end
+
+	fps = best_option.fps
+	obs.obs_data_set_int(settings, "fps", fps)
+
+	update_bpp(settings)
+	return true
+end
+
+function fps_modified(props, p, settings)
+	fps = obs.obs_data_get_int(settings, "fps")
 
 	local target_pps = bitrate / target_bpp
 	local best_option = video_options[1]
@@ -221,40 +253,20 @@ function optimize_resolution(props, p)
 
 	width = best_option.width
 	height = best_option.height
-	bpp = bitrate / (width * height * fps)
+	obs.obs_data_set_int(settings, "height", height)
 
-	obs.obs_data_set_int(my_script_settings, "mbpp", math.floor(bpp * 1000))
-	obs.obs_data_set_int(my_script_settings, "height", height)
-
+	update_bpp(settings)
 	return true
 end
 
-function optimize_fps(props, p)
-	my_script_properties = props
-
-	local target_pps = bitrate / target_bpp
-	local best_option = video_options[1]
-	for _,option in ipairs(video_options) do
-		if option.height == height then
-			if math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
-				best_option = option
-			end
-		end
+function update_bpp(settings)
+	if not settings then
+		script_log("update_bpp missing settings")
+		return
 	end
-
-	fps = best_option.fps
 	bpp = bitrate / (width * height * fps)
-
-	obs.obs_data_set_int(my_script_settings, "mbpp", math.floor(bpp * 1000))
-	obs.obs_data_set_int(my_script_settings, "fps", fps)
-
-	return true
-end
-
-function refresh(props, p, set)
-	my_script_properties = props
-	script_log("refresh")
-	return true
+	obs.obs_data_set_int(settings, "mbpp", math.floor(bpp*1000))
+	display_settings()
 end
 
 function dump_obs()
@@ -289,29 +301,29 @@ function script_properties()
 
 	local props = obs.obs_properties_create()
 
-	obs.obs_properties_add_int(props, "kbitrate", "KiloBitrate", 1, 6000, 50)
-	obs.obs_properties_add_int(props, "target_mbpp", "Target mbpp", 50, 500, 1)
-	local b = obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 50, 500, 1)
-	obs.obs_property_set_enabled(b, false)
+	local kbr = obs.obs_properties_add_int(props, "kbitrate", "KiloBitrate", 1, 6000, 50)
+	obs.obs_property_set_modified_callback(kbr, bitrate_modified)
+
+	local tmbpp = obs.obs_properties_add_int(props, "target_mbpp", "Target mbpp", 50, 500, 1)
+
+	obs.obs_property_set_modified_callback(tmbpp, target_bmpp_modified)
+
+	local mbpp = obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 50, 500, 1)
+	obs.obs_property_set_enabled(mbpp, false)
 
 	local r = obs.obs_properties_add_list(props, "height", "Resolution", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
 	for _, res in ipairs(resolution_options) do
 		obs.obs_property_list_add_int(r, res[1] .. "x" .. res[2], res[2])
 	end
-	obs.obs_property_set_modified_callback(r, refresh)
+	obs.obs_property_set_modified_callback(r, height_modified)
 
 	local f = obs.obs_properties_add_list(props, "fps", "FPS", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
 	for _, frames in ipairs(fps_options) do
 		obs.obs_property_list_add_int(f, tostring(frames), frames)
 	end
-	obs.obs_property_set_modified_callback(f, refresh)
+	obs.obs_property_set_modified_callback(f, fps_modified)
 
 	obs.obs_properties_add_button(props, "apply_settings", "Apply Settings", apply_settings)
-	obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
-	obs.obs_properties_add_button(props, "optimize_resolution", "Optimize Resolution", optimize_resolution)
-	obs.obs_properties_add_button(props, "optimize_fps", "Optimize FPS", optimize_fps)
-
-	my_script_properties = props
 
 	return props
 end
@@ -319,38 +331,12 @@ end
 -- A function named script_defaults will be called to set the default settings
 function script_defaults(settings)
 	script_log("defaults")
-	my_script_settings = settings
 
 	obs.obs_data_set_default_int(settings, "kbitrate", bitrate/1000)
 	obs.obs_data_set_default_int(settings, "target_mbpp", math.floor(target_bpp * 1000))
 	obs.obs_data_set_default_int(settings, "mbpp", math.floor(bpp * 1000))
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
-end
-
--- A function named script_update will be called when settings are changed
-function script_update(settings)
-	script_log("update")
-	my_script_settings = settings
-
-	bitrate = obs.obs_data_get_int(settings, "kbitrate") * 1000
-	height = obs.obs_data_get_int(settings, "height")
-	for _, res in ipairs(resolution_options) do
-		if res[2] == height then
-			width = res[1]
-			break
-		end
-	end
-	fps = obs.obs_data_get_int(settings, "fps")
-
-	obs.obs_data_set_int(settings, "height", height)
-	obs.obs_data_set_int(settings, "fps", fps)
-	bpp = bitrate / (width * height * fps)
-	obs.obs_data_set_int(settings, "mbpp", math.floor(bpp*1000))
-
-	--obs.obs_properties_apply_settings(my_script_properties, setting)
-
-	display_settings()
 end
 
 -- A function named script_save will be called when OBS settings are changed
@@ -360,14 +346,12 @@ end
 -- Settings set via the properties are saved automatically.
 function script_save(settings)
 	--script_log("save")
-	my_script_settings = settings
 	capture_obs_settings(settings)
 end
 
 -- a function named script_load will be called on startup
 function script_load(settings)
 	script_log("load")
-	my_script_settings = settings
 	--dump_obs()
 	capture_obs_settings(settings)
 	display_settings()
