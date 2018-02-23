@@ -97,7 +97,8 @@ local width = 640
 local height = 360
 local fps = 30
 local bitrate = 1000000
-local bpp = 0.075
+local target_bpp = 0.100
+local bpp = 0.100
 
 local resolution_options = {
 	{640, 360},
@@ -176,6 +177,7 @@ function capture_obs_settings()
 	bpp = bitrate / (width * height * fps)
 
 	obs.obs_data_set_int(settings, "kbitrate", bitrate / 1000)
+	obs.obs_data_set_int(settings, "mbpp", math.floor(bpp * 1000))
 	obs.obs_data_set_int(settings, "height", height)
 	obs.obs_data_set_int(settings, "fps", fps)
 end
@@ -197,6 +199,10 @@ function apply_settings()
 	end
 
 	return true -- true calls QT RefreshProperties ?
+end
+
+function refresh()
+	return true
 end
 
 function dump_obs()
@@ -232,6 +238,9 @@ function script_properties()
 	local props = obs.obs_properties_create()
 
 	obs.obs_properties_add_int(props, "kbitrate", "KiloBitrate", 1, 6000, 50)
+	obs.obs_properties_add_int(props, "target_mbpp", "Target mbpp", 50, 500, 1)
+	local b = obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 50, 500, 1)
+	obs.obs_property_set_enabled(b, false)
 
 	local r = obs.obs_properties_add_list(props, "height", "Resolution", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
 	for _, res in ipairs(resolution_options) do
@@ -244,6 +253,7 @@ function script_properties()
 	end
 
 	obs.obs_properties_add_button(props, "apply_settings", "Apply Settings", apply_settings)
+	obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
 
 	return props
 end
@@ -253,6 +263,8 @@ function script_defaults(settings)
 	script_log("defaults")
 
 	obs.obs_data_set_default_int(settings, "kbitrate", bitrate/1000)
+	obs.obs_data_set_default_int(settings, "target_mbpp", math.floor(target_bpp * 1000))
+	obs.obs_data_set_default_int(settings, "mbpp", math.floor(bpp * 1000))
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
 end
