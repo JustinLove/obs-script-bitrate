@@ -1,4 +1,4 @@
-- remember optmization target when changing bitrate and bpp
+- make optimization optional, or choose target?
 
 - FFI
 - `obs_property_set_modified_callback`

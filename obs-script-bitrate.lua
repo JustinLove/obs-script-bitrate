@@ -148,6 +148,14 @@ function optimize_fps(settings)
 	update_bpp(settings)
 end
 
+function optimize(settings)
+	if optimization_target == "resolution" then
+		optimize_resolution(settings)
+	else
+		optimize_fps(settings)
+	end
+end
+
 function bitrate_modified(props, p, settings)
 	return false -- text controls refreshing properties reset focus on each character
 end
@@ -184,6 +192,7 @@ function capture_obs_settings_button(props, p, set)
 end
 
 function refresh(props, p, set)
+	optimize(my_settings)
 	return true
 end
 
