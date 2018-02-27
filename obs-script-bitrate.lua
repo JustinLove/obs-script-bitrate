@@ -220,7 +220,7 @@ function script_properties()
 
 	obs.obs_property_set_modified_callback(tmbpp, target_bmpp_modified)
 
-	local mbpp = obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 50, 500, 1)
+	local mbpp = obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 0, 999999, 1)
 	obs.obs_property_set_enabled(mbpp, false)
 
 	local r = obs.obs_properties_add_list(props, "height", "Resolution", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
