@@ -111,12 +111,12 @@ end
 function bitrate_modified(props, p, settings)
 	bitrate = obs.obs_data_get_int(settings, "kbitrate") * 1000
 	update_bpp(settings)
-	return true
+	return false -- text controls refreshing properties reset focus on each character
 end
 
 function target_bpp_modified(props, p, settings)
 	target_bpp = obs.obs_data_get_int(settings, "target_mbpp") / 1000
-	return true
+	return false -- text controls refreshing properties reset focus on each character
 end
 
 function height_modified(props, p, settings)
@@ -176,6 +176,11 @@ function update_bpp(settings)
 	display_settings()
 end
 
+
+function refresh(props, p, set)
+	return true
+end
+
 function dump_obs()
 	local keys = {}
 	for key,value in pairs(obs) do
@@ -229,6 +234,8 @@ function script_properties()
 		obs.obs_property_list_add_int(f, tostring(frames), frames)
 	end
 	obs.obs_property_set_modified_callback(f, fps_modified)
+
+	obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
 
 	return props
 end
