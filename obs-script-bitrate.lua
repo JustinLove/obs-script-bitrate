@@ -20,6 +20,7 @@ video_t *obs_get_video(void);
 local obsffi = ffi.load("obs")
 
 local my_settings = nil
+local optimization_target = "resolution"
 
 local width = 1152
 local height = 648
@@ -112,33 +113,7 @@ function capture_obs_settings(settings)
 	obs.obs_data_set_int(settings, "fps", fps)
 end
 
-function bitrate_modified(props, p, settings)
-	return false -- text controls refreshing properties reset focus on each character
-end
-
-function target_bpp_modified(props, p, settings)
-	return false -- text controls refreshing properties reset focus on each character
-end
-
-function height_modified(props, p, settings)
-	local target_pps = bitrate / target_bpp
-	local best_option = video_options[1]
-	for _,option in ipairs(video_options) do
-		if option.height == height then
-			if math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
-				best_option = option
-			end
-		end
-	end
-
-	fps = best_option.fps
-	obs.obs_data_set_int(settings, "fps", fps)
-
-	update_bpp(settings)
-	return true
-end
-
-function fps_modified(props, p, settings)
+function optimize_resolution(settings)
 	local target_pps = bitrate / target_bpp
 	local best_option = video_options[1]
 	for _,option in ipairs(video_options) do
@@ -154,6 +129,42 @@ function fps_modified(props, p, settings)
 	obs.obs_data_set_int(settings, "height", height)
 
 	update_bpp(settings)
+end
+
+function optimize_fps(settings)
+	local target_pps = bitrate / target_bpp
+	local best_option = video_options[1]
+	for _,option in ipairs(video_options) do
+		if option.height == height then
+			if math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
+				best_option = option
+			end
+		end
+	end
+
+	fps = best_option.fps
+	obs.obs_data_set_int(settings, "fps", fps)
+
+	update_bpp(settings)
+end
+
+function bitrate_modified(props, p, settings)
+	return false -- text controls refreshing properties reset focus on each character
+end
+
+function target_bpp_modified(props, p, settings)
+	return false -- text controls refreshing properties reset focus on each character
+end
+
+function height_modified(props, p, settings)
+	optimization_target = "fps"
+	optimize_fps(settings)
+	return true
+end
+
+function fps_modified(props, p, settings)
+	optimization_target = "resolution"
+	optimize_resolution(settings)
 	return true
 end
 
@@ -278,7 +289,6 @@ end
 function script_save(settings)
 	--script_log("save")
 	capture_obs_settings(settings)
-	obs.obs_data_set_int(settings, "kbitrate", bitrate / 1000)
 end
 
 -- a function named script_load will be called on startup
