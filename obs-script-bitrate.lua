@@ -22,6 +22,11 @@ local obsffi = ffi.load("obs")
 local my_settings = nil
 local optimization_target = "resolution"
 
+local optimization_options = {
+	"resolution",
+	"fps",
+}
+
 local width = 1152
 local height = 648
 local fps = 30
@@ -183,6 +188,7 @@ function update_bpp(settings)
 	end
 	bpp = bitrate / (width * height * fps)
 	obs.obs_data_set_int(settings, "mbpp", math.floor(bpp*1000))
+	obs.obs_data_set_string(settings, "optimization_target", optimization_target)
 	display_settings()
 end
 
@@ -252,6 +258,12 @@ function script_properties(arg)
 	end
 	obs.obs_property_set_modified_callback(f, fps_modified)
 
+	local o = obs.obs_properties_add_list(props, "optimization_target", "Optimization Target", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_STRING)
+	for _, target in ipairs(optimization_options) do
+		obs.obs_property_list_add_string(o, target, target)
+	end
+	obs.obs_property_set_enabled(o, false)
+
 	obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
 
 	return props
@@ -266,6 +278,7 @@ function script_defaults(settings)
 	obs.obs_data_set_default_int(settings, "mbpp", math.floor(bpp * 1000))
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
+	obs.obs_data_set_default_int(settings, "optimization_target", optimization_target)
 end
 
 --
