@@ -89,6 +89,8 @@ function capture_obs_settings(settings)
 		local settings = obs.obs_encoder_get_settings(encoder)
 		--script_log(obs.obs_data_get_json(settings))
 		bitrate = obs.obs_data_get_int(settings, "bitrate") * 1000
+		obs.obs_data_release(settings)
+		obs.obs_encoder_release(encoder)
 	else
 		script_log("no encoder")
 	end
