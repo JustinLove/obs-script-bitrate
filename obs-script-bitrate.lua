@@ -218,7 +218,7 @@ end
 -- A function named script_description returns the description shown to
 -- the user
 function script_description()
-	return "Calculate bitrate tradeoffs, and maybe someday update settings in once place"
+	return "Calculate best resolution or frame rate for a target bitrate."
 end
 
 -- A function named script_properties defines the properties that the user
