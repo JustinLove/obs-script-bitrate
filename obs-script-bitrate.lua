@@ -19,10 +19,12 @@ video_t *obs_get_video(void);
 
 local obsffi = ffi.load("obs")
 
-local width = 640
-local height = 360
+local my_settings = nil
+
+local width = 1152
+local height = 648
 local fps = 30
-local bitrate = 1000000
+local bitrate = 2500
 local target_bpp = 0.100
 local bpp = 0.100
 
@@ -111,25 +113,14 @@ function capture_obs_settings(settings)
 end
 
 function bitrate_modified(props, p, settings)
-	bitrate = obs.obs_data_get_int(settings, "kbitrate") * 1000
-	update_bpp(settings)
 	return false -- text controls refreshing properties reset focus on each character
 end
 
 function target_bpp_modified(props, p, settings)
-	target_bpp = obs.obs_data_get_int(settings, "target_mbpp") / 1000
 	return false -- text controls refreshing properties reset focus on each character
 end
 
 function height_modified(props, p, settings)
-	height = obs.obs_data_get_int(settings, "height")
-	for _, res in ipairs(resolution_options) do
-		if res[2] == height then
-			width = res[1]
-			break
-		end
-	end
-
 	local target_pps = bitrate / target_bpp
 	local best_option = video_options[1]
 	for _,option in ipairs(video_options) do
@@ -148,8 +139,6 @@ function height_modified(props, p, settings)
 end
 
 function fps_modified(props, p, settings)
-	fps = obs.obs_data_get_int(settings, "fps")
-
 	local target_pps = bitrate / target_bpp
 	local best_option = video_options[1]
 	for _,option in ipairs(video_options) do
@@ -178,6 +167,10 @@ function update_bpp(settings)
 	display_settings()
 end
 
+function capture_obs_settings_button(props, p, set)
+	capture_obs_settings(my_settings)
+	return true
+end
 
 function refresh(props, p, set)
 	return true
@@ -210,10 +203,12 @@ end
 
 -- A function named script_properties defines the properties that the user
 -- can change for the entire script module itself
-function script_properties()
+function script_properties(arg)
 	script_log("props")
 
 	local props = obs.obs_properties_create()
+
+	obs.obs_properties_add_button(props, "capture_obs_settings", "Capture OBS Settings", capture_obs_settings_button)
 
 	local kbr = obs.obs_properties_add_int(props, "kbitrate", "KiloBitrate", 1, 6000, 50)
 	obs.obs_property_set_modified_callback(kbr, bitrate_modified)
@@ -253,6 +248,28 @@ function script_defaults(settings)
 	obs.obs_data_set_default_int(settings, "fps", fps)
 end
 
+--
+-- A function named script_update will be called when settings are changed
+function script_update(settings)
+	script_log("update")
+	my_settings = settings
+
+	bitrate = obs.obs_data_get_int(settings, "kbitrate") * 1000
+
+	target_bpp = obs.obs_data_get_int(settings, "target_mbpp") / 1000
+	height = obs.obs_data_get_int(settings, "height")
+	for _, res in ipairs(resolution_options) do
+		if res[2] == height then
+			width = res[1]
+			break
+		end
+	end
+
+	fps = obs.obs_data_get_int(settings, "fps")
+
+	update_bpp(settings)
+end
+
 -- A function named script_save will be called when OBS settings are changed
 -- including start and stop streaming.
 --
@@ -261,6 +278,7 @@ end
 function script_save(settings)
 	--script_log("save")
 	capture_obs_settings(settings)
+	obs.obs_data_set_int(settings, "kbitrate", bitrate / 1000)
 end
 
 -- a function named script_load will be called on startup

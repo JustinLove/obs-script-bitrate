@@ -1,4 +1,3 @@
-- getting wrong bitrate at startup
 - remember optmization target when changing bitrate and bpp
 
 - FFI
