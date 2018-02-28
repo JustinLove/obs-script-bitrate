@@ -23,6 +23,8 @@ local my_settings = nil
 local optimization_target = "resolution"
 
 local optimization_options = {
+	"none",
+	"bitrate",
 	"resolution",
 	"fps",
 }
@@ -118,6 +120,13 @@ function capture_obs_settings(settings)
 	obs.obs_data_set_int(settings, "fps", fps)
 end
 
+function optimize_bitrate(settings)
+	bitrate = width * height * fps * target_bpp
+
+	obs.obs_data_set_int(settings, "kbitrate", bitrate / 1000)
+	update_bpp(settings)
+end
+
 function optimize_resolution(settings)
 	local target_pps = bitrate / target_bpp
 	local best_option = video_options[1]
@@ -154,7 +163,11 @@ function optimize_fps(settings)
 end
 
 function optimize(settings)
-	if optimization_target == "resolution" then
+	if optimization_target == "none" then
+		update_bpp(settings)
+	elseif optimization_target == "bitrate" then
+		optimize_bitrate(settings)
+	elseif optimization_target == "resolution" then
 		optimize_resolution(settings)
 	else
 		optimize_fps(settings)
@@ -170,14 +183,17 @@ function target_bpp_modified(props, p, settings)
 end
 
 function height_modified(props, p, settings)
-	optimization_target = "fps"
-	optimize_fps(settings)
+	optimize(settings)
 	return true
 end
 
 function fps_modified(props, p, settings)
-	optimization_target = "resolution"
-	optimize_resolution(settings)
+	optimize(settings)
+	return true
+end
+
+function optimization_target_modified(props, p, settings)
+	optimize(settings)
 	return true
 end
 
@@ -188,7 +204,6 @@ function update_bpp(settings)
 	end
 	bpp = bitrate / (width * height * fps)
 	obs.obs_data_set_int(settings, "mbpp", math.floor(bpp*1000))
-	obs.obs_data_set_string(settings, "optimization_target", optimization_target)
 	display_settings()
 end
 
@@ -268,7 +283,7 @@ function script_properties(arg)
 	for _, target in ipairs(optimization_options) do
 		obs.obs_property_list_add_string(o, target, target)
 	end
-	obs.obs_property_set_enabled(o, false)
+	obs.obs_property_set_modified_callback(o, optimization_target_modified)
 
 	obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
 
@@ -305,6 +320,8 @@ function script_update(settings)
 	end
 
 	fps = obs.obs_data_get_int(settings, "fps")
+
+	optimization_target = obs.obs_data_get_string(settings, "optimization_target")
 
 	update_bpp(settings)
 end

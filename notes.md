@@ -1,4 +1,5 @@
 - make optimization optional, or choose target?
+- description should state that no changes are made to obs settings
 
 - FFI
 - `obs_property_set_modified_callback`
