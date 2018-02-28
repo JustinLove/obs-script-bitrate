@@ -278,7 +278,7 @@ function script_defaults(settings)
 	obs.obs_data_set_default_int(settings, "mbpp", math.floor(bpp * 1000))
 	obs.obs_data_set_default_int(settings, "height", height)
 	obs.obs_data_set_default_int(settings, "fps", fps)
-	obs.obs_data_set_default_int(settings, "optimization_target", optimization_target)
+	obs.obs_data_set_default_string(settings, "optimization_target", optimization_target)
 end
 
 --
