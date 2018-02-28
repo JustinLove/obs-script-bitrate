@@ -174,6 +174,19 @@ function optimize(settings)
 	end
 end
 
+function update_enabled_property(props, name, target)
+	local prop = obs.obs_properties_get(props, name)
+	if prop then
+		obs.obs_property_set_enabled(prop, optimization_target ~= target)
+	end
+end
+
+function update_enabled(props)
+	update_enabled_property(props, "kbitrate", "bitrate")
+	update_enabled_property(props, "height", "resolution")
+	update_enabled_property(props, "fps", "fps")
+end
+
 function bitrate_modified(props, p, settings)
 	return false -- text controls refreshing properties reset focus on each character
 end
@@ -194,6 +207,7 @@ end
 
 function optimization_target_modified(props, p, settings)
 	optimize(settings)
+	update_enabled(props)
 	return true
 end
 
@@ -250,7 +264,7 @@ end
 
 -- A function named script_properties defines the properties that the user
 -- can change for the entire script module itself
-function script_properties(arg)
+function script_properties()
 	script_log("props")
 
 	local props = obs.obs_properties_create()
@@ -286,6 +300,8 @@ function script_properties(arg)
 	obs.obs_property_set_modified_callback(o, optimization_target_modified)
 
 	obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
+
+	update_enabled(props)
 
 	return props
 end

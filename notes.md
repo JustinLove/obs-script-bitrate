@@ -1,5 +1,7 @@
-- make optimization optional, or choose target?
+- wrong fps chosen
 - description should state that no changes are made to obs settings
+- poke at `obs_properties_add_frame_rate`
+- long description?
 
 - FFI
 - `obs_property_set_modified_callback`
