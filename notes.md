@@ -1,4 +1,3 @@
-- description should state that no changes are made to obs settings
 - poke at `obs_properties_add_frame_rate`
 - long description?
 
