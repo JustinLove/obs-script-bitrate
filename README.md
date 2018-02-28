@@ -4,7 +4,7 @@
 
 ## Usage
 
-- Changing Resolution will try to find the best FPS, and vice-versa.
+- Select an optimization target to have that value calculated based on the others.
 - Bitrate, Resolution, and FPS should be initialized from OBS, you may need to use *Capture OBS Settings* as they are not necessarily accurate at startup.
 - When editing text controls, you must press *Refresh* to updated calculated fields.
 
