@@ -49,7 +49,7 @@ local resolution_options = {
 	{1920, 1080}
 }
 
-local fps_options = {5, 10, 15, 20, 30, 45, 60}
+local fps_options = {10, 15, 20, 30, 45, 60}
 
 local video_options = {}
 
