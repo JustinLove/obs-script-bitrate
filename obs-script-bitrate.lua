@@ -223,8 +223,14 @@ end
 
 -- A function named script_description returns the description shown to
 -- the user
+local description = [[Calculate best resolution or frame rate for a target bitrate.
+
+- Changing Resolution will try to find the best FPS, and vice-versa.
+- Bitrate, Resolution, and FPS should be initialized from OBS, you may need to use Capture OBS Settings as they are not necessarily accurate at startup.
+- When editing text controls, you must press Refresh to updated calculated fields.
+]]
 function script_description()
-	return "Calculate best resolution or frame rate for a target bitrate."
+	return description
 end
 
 -- A function named script_properties defines the properties that the user
