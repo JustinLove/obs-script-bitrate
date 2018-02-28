@@ -1,5 +1,4 @@
 - poke at `obs_properties_add_frame_rate`
-- long description?
 
 - FFI
 - `obs_property_set_modified_callback`

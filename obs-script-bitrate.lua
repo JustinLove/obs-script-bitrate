@@ -273,17 +273,21 @@ function script_properties()
 
 	local props = obs.obs_properties_create()
 
-	obs.obs_properties_add_button(props, "capture_obs_settings", "Capture OBS Settings", capture_obs_settings_button)
+	local c = obs.obs_properties_add_button(props, "capture_obs_settings", "Capture OBS Settings", capture_obs_settings_button)
+	obs.obs_property_set_long_description(c, "Load Bitrate, Resolution, and BPP from current OBS configuration.")
 
 	local kbr = obs.obs_properties_add_int(props, "kbitrate", "KiloBitrate", 1, 6000, 50)
 	obs.obs_property_set_modified_callback(kbr, bitrate_modified)
+	obs.obs_property_set_long_description(kbr, "After editing, press refresh to updated calculated fields.")
 
 	local tmbpp = obs.obs_properties_add_int(props, "target_mbpp", "Target mbpp", 50, 500, 1)
 
 	obs.obs_property_set_modified_callback(tmbpp, target_bmpp_modified)
+	obs.obs_property_set_long_description(tmbpp, "Detail level, 100 is a recommended baseline for streaming.\nOften written as bpp 0.1\nAfter editing, press Refresh to updated calculated fields.")
 
 	local mbpp = obs.obs_properties_add_int(props, "mbpp", "MilliBits Per Pixel", 0, 999999, 1)
 	obs.obs_property_set_enabled(mbpp, false)
+	obs.obs_property_set_long_description(mbpp, "Calculated detail level, see Target mbpp.")
 
 	local r = obs.obs_properties_add_list(props, "height", "Resolution", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_INT)
 	for _, res in ipairs(resolution_options) do
@@ -296,14 +300,17 @@ function script_properties()
 		obs.obs_property_list_add_int(f, tostring(frames), frames)
 	end
 	obs.obs_property_set_modified_callback(f, fps_modified)
+	obs.obs_property_set_long_description(f, "Frames Per Second")
 
 	local o = obs.obs_properties_add_list(props, "optimization_target", "Optimization Target", obs.OBS_COMBO_TYPE_LIST, obs.OBS_COMBO_FORMAT_STRING)
 	for _, target in ipairs(optimization_options) do
 		obs.obs_property_list_add_string(o, target, target)
 	end
 	obs.obs_property_set_modified_callback(o, optimization_target_modified)
+	obs.obs_property_set_long_description(o, "Try to choose the best value for this chosen property based on other selections.")
 
-	obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
+	local ref = obs.obs_properties_add_button(props, "refresh", "Refresh", refresh)
+	obs.obs_property_set_long_description(ref, "Updated calculated fields with changes from text controls.")
 
 	update_enabled(props)
 
