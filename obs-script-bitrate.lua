@@ -20,7 +20,7 @@ video_t *obs_get_video(void);
 local obsffi = ffi.load("obs")
 
 local my_settings = nil
-local optimization_target = "resolution"
+local optimization_target = "none"
 
 local optimization_options = {
 	"none",
@@ -129,10 +129,10 @@ end
 
 function optimize_resolution(settings)
 	local target_pps = bitrate / target_bpp
-	local best_option = video_options[1]
+	local best_option = nil
 	for _,option in ipairs(video_options) do
 		if option.fps == fps then
-			if math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
+			if not best_option or math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
 				best_option = option
 			end
 		end
@@ -147,10 +147,10 @@ end
 
 function optimize_fps(settings)
 	local target_pps = bitrate / target_bpp
-	local best_option = video_options[1]
+	local best_option = nil
 	for _,option in ipairs(video_options) do
 		if option.height == height then
-			if math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
+			if not best_option or math.abs(target_pps - option.pps) < math.abs(target_pps - best_option.pps) then
 				best_option = option
 			end
 		end
@@ -169,8 +169,10 @@ function optimize(settings)
 		optimize_bitrate(settings)
 	elseif optimization_target == "resolution" then
 		optimize_resolution(settings)
-	else
+	elseif optimization_target == "fps" then
 		optimize_fps(settings)
+	else
+		script_log("No optimization target chosen")
 	end
 end
 
